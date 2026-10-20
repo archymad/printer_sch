@@ -15,11 +15,29 @@ Un petit outil **en lecture seule**, en français, pour aider à comprendre pour
 
 1. Sur GitHub, cliquez sur **Code > Download ZIP**, puis décompressez complètement l'archive.
 2. Allumez l'imprimante. Idéalement, reliez-la et le PC au même réseau Wi-Fi/Ethernet.
-3. Double-cliquez sur `Lancer_Diagnostic.cmd`.
+3. Double-cliquez sur `diag.cmd` (ou tapez `diag.cmd` dans l'invite de commandes Windows depuis le dossier).
 4. Si nécessaire, saisissez l'adresse IP indiquée dans le menu réseau de l'imprimante.
 5. Répondez aux questions et consultez le rapport généré sur le Bureau.
 
 Pour lire le script avant exécution, ouvrez `HP9015_Diagnostic.ps1` dans le Bloc-notes.
+
+### Lancement depuis le terminal Windows
+
+Dans **CMD** (Invite de commandes), placez-vous dans le dossier `printer_sch-main` puis tapez :
+
+```bat
+diag.cmd
+```
+
+Dans **PowerShell**, lancez :
+
+```powershell
+.\diag.cmd
+```
+
+Pour télécharger la dernière version sans Git, utilisez **Code > Download ZIP** sur GitHub, puis extrayez tous les fichiers. Si vous aviez déjà téléchargé l'ancienne version, remplacez le dossier extrait par celui du nouveau ZIP.
+
+Le scan montre les vérifications effectuées, mais ne lit pas directement les puces des cartouches et ne déverrouille pas le firmware.
 
 ## Sécurité et confidentialité
 
@@ -40,7 +58,8 @@ Prévu pour Windows 10/11, Windows PowerShell 5.1. Non testé matériellement av
 
 ## Fichiers
 
-- `Lancer_Diagnostic.cmd` : lancement par double clic.
+- `diag.cmd` : lancement par double clic ou depuis le terminal.
+- Pendant l'analyse : bannière, barre de progression et messages d'étapes ([5 %] à [100 %]).
 - `HP9015_Diagnostic.ps1` : script PowerShell principal.
 - `.gitignore` : exclut les éventuels rapports locaux.
 
