@@ -138,7 +138,7 @@ function Make-PublicSummary([string]$fw, [string]$cat, [bool]$modelConfirmed, [b
     $fw = [string]$fw
     $fw = $fw.Trim()
     # Valeur courte et neutre uniquement : aucun caractere libre dans l'Issue.
-    if ($fw -cmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{1,59}) { $firmwareLabel = $fw }
+    if ($fw -cmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{1,59}$') { $firmwareLabel = $fw }
 
     $modelLabel = 'HP OfficeJet Pro 9015 : modele a confirmer'
     if ($modelConfirmed) { $modelLabel = 'HP OfficeJet Pro 9015 : identifiee' }
