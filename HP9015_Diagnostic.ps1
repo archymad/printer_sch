@@ -4,7 +4,27 @@
 $ErrorActionPreference = 'Stop'
 
 function Echo([string]$s) { Write-Host $s }
-function Section([string]$s) { Write-Host "`n=== $s ===" -ForegroundColor Cyan }
+function Section([string]$s) {
+    Write-Host "`n  >> $s" -ForegroundColor Yellow
+    Write-Host "  --------------------------------------------------" -ForegroundColor DarkGray
+}
+function Banner {
+    Write-Host ""
+    Write-Host "  +==================================================+" -ForegroundColor Cyan
+    Write-Host "  |      P R I N T E R   S C A N  /  HP 9015        |" -ForegroundColor Cyan
+    Write-Host "  |      Diagnostic intelligent  |  v1.1            |" -ForegroundColor Cyan
+    Write-Host "  +==================================================+" -ForegroundColor Cyan
+    Write-Host "   [SAFE MODE] Lecture seule - aucune modification" -ForegroundColor Green
+    Write-Host ""
+}
+function Step([int]$percent, [string]$status) {
+    Write-Progress -Id 1 -Activity "PRINTER SCAN / HP OfficeJet Pro" -Status $status -PercentComplete $percent
+    Write-Host ("   [{0,3}%] {1}" -f $percent, $status) -ForegroundColor Cyan
+}
+function Finish-Progress {
+    Write-Progress -Id 1 -Activity "PRINTER SCAN / HP OfficeJet Pro" -Completed
+}
+
 function Get-PortIP([string]$portName) {
     try {
         $p = Get-PrinterPort -Name $portName -ErrorAction Stop
@@ -105,20 +125,25 @@ function Read-Ews([string]$ip) {
 $report = New-Object 'System.Collections.Generic.List[string]'
 function Record([string]$s) { $script:report.Add($s); Echo $s }
 try {
-    Section 'Diagnostic HP OfficeJet Pro 9015'
+    Banner
+    Step 5 'Initialisation du diagnostic...'
+    Section 'Demarrage'
     Record "Date : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
     Record 'Mode : LECTURE SEULE, aucune action sur le firmware.'
     if (-not (Get-Command Get-Printer -ErrorAction SilentlyContinue)) {
         Record 'Cette edition de Windows ne fournit pas Get-Printer.'
         throw 'Commande Windows Get-Printer indisponible.'
     }
+    Step 15 'Recherche des imprimantes installees sous Windows...'
     $all = @(Get-Printer -ErrorAction Stop)
+    Step 25 'Inventaire Windows termine.'
     $hp = @($all | Where-Object { $_.Name -match 'HP|OfficeJet|Officejet' -or $_.DriverName -match 'HP.*OfficeJet' })
     Section 'Imprimantes detectees par Windows'
     if ($hp.Count -eq 0) { Record 'Aucune imprimante HP detectee dans Windows.' }
     foreach ($p in $hp) { Record "Nom : $($p.Name) | Port : $($p.PortName) | Pilote : $($p.DriverName)" }
     $candidate = @($hp | Where-Object { $_.Name -match '901[0-9]|OfficeJet Pro 90' -or $_.DriverName -match '901[0-9]' }) | Select-Object -First 1
     if (-not $candidate) { $candidate = $hp | Select-Object -First 1 }
+    Step 35 'Detection de la connexion et du port reseau...'
     $ip = $null
     if ($candidate) {
         $ip = Get-PortIP $candidate.PortName
@@ -129,6 +154,7 @@ try {
         Write-Host "`nSi l'imprimante est connectee en Wi-Fi/Ethernet, relevez son adresse IP sur son ecran (Reseau)."
         $ip = (Read-Host 'Adresse IP de votre imprimante (Entree pour passer)').Trim()
     }
+    Step 40 'Informations de connexion rassemblees.'
     $firmware = $null
     $ippData = $null
     $ews = $null
@@ -144,6 +170,7 @@ try {
         if (-not $isLocal) { Record 'Adresse IP non privee : pas de connexion effectuee par precaution.'; $ip = $null }
     }
     if ($ip) {
+        Step 50 'Interrogation du service IPP sur le reseau local...'
         Section 'Interrogation IPP du reseau local'
         try {
             $ippData = Read-Ipp $ip
@@ -151,6 +178,8 @@ try {
             foreach ($key in $ippData.Keys) { Record "${key} : $($ippData[$key])" }
             if ($ippData.Contains('printer-firmware-version')) { $firmware = $ippData['printer-firmware-version'] }
         } catch { Record "IPP : lecture indisponible ($($_.Exception.Message))." }
+        Step 65 'Interrogation IPP terminee.'
+        Step 72 'Recherche du micrologiciel sur la page Web HP...'
         Section 'Interface Web integree HP (EWS)'
         try {
             $ews = Read-Ews $ip
@@ -160,7 +189,11 @@ try {
                 if (-not $firmware) { $firmware = $ews.firmware }
             } else { Record 'Version non visible sur la page Web publique (consulter la rubrique Informations / Outils).' }
         } catch { Record "Interface Web : lecture automatique indisponible ($($_.Exception.Message))." }
+        Step 85 'Verification du reseau local terminee.'
+    } else {
+        Step 85 'Aucune adresse IP locale disponible : diagnostic Windows uniquement.'
     }
+    Step 90 'Identification du probleme des cartouches...'
     Section 'Probleme observe sur les cartouches'
     Echo '1 = Puce non-HP ou cartouche refusee par securite dynamique'
     Echo '2 = Cartouche incompatible'
@@ -168,6 +201,7 @@ try {
     Echo '4 = Autre / message inconnu'
     $choice = (Read-Host 'Choisissez 1, 2, 3 ou 4').Trim()
     Record "Categorie selectionnee : $choice"
+    Step 95 'Preparation des recommandations...'
     Section 'Diagnostic et pistes adaptees'
     if ($firmware) { Record "Firmware recupere : $firmware" }
     else { Record 'Firmware non recupere automatiquement : consulter la page EWS et noter la version affichee.' }
@@ -197,10 +231,13 @@ try {
     $dest = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Diagnostic_HP9015.txt'
     try {
         [System.IO.File]::WriteAllLines($dest, [string[]]$report.ToArray(), (New-Object System.Text.UTF8Encoding($true)))
-        Write-Host "`nRapport cree : $dest" -ForegroundColor Green
+        Step 100 'Analyse terminee : votre rapport est pret.'
+        Write-Host "`n  [OK] Rapport cree : $dest" -ForegroundColor Green
     } catch {
         Write-Host "Impossible d'ecrire sur le Bureau : $($_.Exception.Message)"
     }
-    Write-Host "`nVous pouvez m'envoyer le rapport (masquez votre adresse IP si vous preferez)."
+    Finish-Progress
+    Write-Host "`n  ============== FIN DU SCAN ==============" -ForegroundColor Cyan
+    Write-Host "  Vous pouvez m'envoyer le rapport (masquez votre IP si vous preferez)." -ForegroundColor Yellow
     Read-Host 'Appuyez sur Entree pour fermer' | Out-Null
 }
