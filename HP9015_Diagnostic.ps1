@@ -138,136 +138,7 @@ function Make-PublicSummary([string]$fw, [string]$cat, [bool]$modelConfirmed, [b
     $fw = [string]$fw
     $fw = $fw.Trim()
     # Valeur courte et neutre uniquement : aucun caractere libre dans l'Issue.
-    if ($fw -cmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{1,59}
-function Record([string]$s) { $script:report.Add($s); Echo $s }
-try {
-    Banner
-    Step 5 'Initialisation du diagnostic...'
-    Section 'Demarrage'
-    Record "Date : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-    Record 'Mode : LECTURE SEULE, aucune action sur le firmware.'
-    if (-not (Get-Command Get-Printer -ErrorAction SilentlyContinue)) {
-        Record 'Cette edition de Windows ne fournit pas Get-Printer.'
-        throw 'Commande Windows Get-Printer indisponible.'
-    }
-    Step 15 'Recherche des imprimantes installees sous Windows...'
-    $all = @(Get-Printer -ErrorAction Stop)
-    Step 25 'Inventaire Windows termine.'
-    $hp = @($all | Where-Object { $_.Name -match 'HP|OfficeJet|Officejet' -or $_.DriverName -match 'HP.*OfficeJet' })
-    Section 'Imprimantes detectees par Windows'
-    if ($hp.Count -eq 0) { Record 'Aucune imprimante HP detectee dans Windows.' }
-    foreach ($p in $hp) { Record "Nom : $($p.Name) | Port : $($p.PortName) | Pilote : $($p.DriverName)" }
-    $candidate = @($hp | Where-Object { $_.Name -match '901[0-9]|OfficeJet Pro 90' -or $_.DriverName -match '901[0-9]' }) | Select-Object -First 1
-    if (-not $candidate) { $candidate = $hp | Select-Object -First 1 }
-    Step 35 'Detection de la connexion et du port reseau...'
-    $ip = $null
-    if ($candidate) {
-        $ip = Get-PortIP $candidate.PortName
-        if ($ip) { Record "Adresse reseau detectee : $ip" }
-        else { Record 'Adresse reseau non trouvee (possible port WSD ou branchement USB).' }
-    }
-    if (-not $ip) {
-        Write-Host "`nSi l'imprimante est connectee en Wi-Fi/Ethernet, relevez son adresse IP sur son ecran (Reseau)."
-        $ip = (Read-Host 'Adresse IP de votre imprimante (Entree pour passer)').Trim()
-    }
-    Step 40 'Informations de connexion rassemblees.'
-    $firmware = $null
-    $ippData = $null
-    $ews = $null
-    if ($ip) {
-        if ($ip -notmatch '^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)$') {
-            Record 'Adresse IPv4 non valide : requetes reseau annulees.'
-            $ip = $null
-        }
-    }
-    if ($ip) {
-        $parts = @($ip.Split('.') | ForEach-Object { [int]$_ })
-        $isLocal = ($parts[0] -eq 10 -or ($parts[0] -eq 172 -and $parts[1] -ge 16 -and $parts[1] -le 31) -or ($parts[0] -eq 192 -and $parts[1] -eq 168) -or ($parts[0] -eq 169 -and $parts[1] -eq 254))
-        if (-not $isLocal) { Record 'Adresse IP non privee : pas de connexion effectuee par precaution.'; $ip = $null }
-    }
-    if ($ip) {
-        Step 50 'Interrogation du service IPP sur le reseau local...'
-        Section 'Interrogation IPP du reseau local'
-        try {
-            $ippData = Read-Ipp $ip
-            if ($ippData.Count -eq 0) { Record 'IPP joignable, mais aucun champ diagnostique fourni.' }
-            foreach ($key in $ippData.Keys) { Record "${key} : $($ippData[$key])" }
-            if ($ippData.Contains('printer-firmware-version')) { $firmware = $ippData['printer-firmware-version'] }
-        } catch { Record "IPP : lecture indisponible ($($_.Exception.Message))." }
-        Step 65 'Interrogation IPP terminee.'
-        Step 72 'Recherche du micrologiciel sur la page Web HP...'
-        Section 'Interface Web integree HP (EWS)'
-        try {
-            $ews = Read-Ews $ip
-            Record "Interface Web : joignable sur $($ews.url)"
-            if ($ews.firmware) {
-                Record "Version de firmware reperee sur la page d'accueil : $($ews.firmware)"
-                if (-not $firmware) { $firmware = $ews.firmware }
-            } else { Record 'Version non visible sur la page Web publique (consulter la rubrique Informations / Outils).' }
-        } catch { Record "Interface Web : lecture automatique indisponible ($($_.Exception.Message))." }
-        Step 85 'Verification du reseau local terminee.'
-    } else {
-        Step 85 'Aucune adresse IP locale disponible : diagnostic Windows uniquement.'
-    }
-    Step 90 'Identification du probleme des cartouches...'
-    Section 'Probleme observe sur les cartouches'
-    Echo '1 = Puce non-HP ou cartouche refusee par securite dynamique'
-    Echo '2 = Cartouche incompatible'
-    Echo '3 = Cartouche absente ou non detectee'
-    Echo '4 = Autre / message inconnu'
-    $choice = (Read-Host 'Choisissez 1, 2, 3 ou 4').Trim()
-    Record "Categorie selectionnee : $choice"
-    Step 95 'Preparation des recommandations...'
-    Section 'Diagnostic et pistes adaptees'
-    if ($firmware) { Record "Firmware recupere : $firmware" }
-    else { Record 'Firmware non recupere automatiquement : consulter la page EWS et noter la version affichee.' }
-    if ($candidate -and $candidate.Name -notmatch '9015' -and $candidate.DriverName -notmatch '9015') {
-        Record "IMPORTANT : le modele exact 9015 n'a pas ete confirme par Windows. Verifier la reference avant toute intervention."
-    }
-    switch ($choice) {
-        '1' {
-            Record 'Blocage probable lie a la reconnaissance des puces des cartouches.'
-            Record 'Aucun outil de deblocage integral fiable n a ete confirme pour la 9015.'
-            Record 'Demander au vendeur un echange contre des cartouches avec puces compatibles avec la version de firmware ci-dessus, ou des cartouches reconditionnees a puce HP originale.'
-            Record 'Un retour a un ancien firmware n est pas officiellement pris en charge et peut etre bloque.'
-        }
-        '2' { Record 'Verifier la reference de cartouche et sa region. Pour les modeles europeens HP 9015, verifier la gamme HP 963/963XL, selon la variante regionale. Demander une puce compatible avec le firmware.' }
-        '3' { Record 'Verifier chaque cartouche, les protections d emballage, son insertion et les contacts propres et secs. Ne pas forcer les composants.' }
-        default { Record 'Relever le message exact sur l ecran ou dans HP Smart; distinguer probleme de puce, cartouche absente ou blocage de service.' }
-    }
-    Record 'Desactiver les mises a jour automatiques uniquement si HP autorise ce reglage et si vous acceptez de reporter les correctifs de securite : cela ne repare pas une cartouche deja refusee.'
-    Record 'Aucune mise a jour ou retrogradation n est lancee par cet outil.'
-    $modelConfirmed = $false
-    if ($candidate -and (($candidate.Name -match '(?i)9015') -or ($candidate.DriverName -match '(?i)9015'))) {
-        $modelConfirmed = $true
-    }
-    if ($ippData -and $ippData.Contains('printer-make-and-model') -and $ippData['printer-make-and-model'] -match '(?i)9015') {
-        $modelConfirmed = $true
-    }
-    $ippAvailable = ($null -ne $ippData -and $ippData.Count -gt 0)
-    $ewsAvailable = ($null -ne $ews -and $ews.accessible)
-    Offer-PublicIssue $firmware $choice $modelConfirmed $ippAvailable $ewsAvailable
-    if ($ip -and $ews -and $ews.accessible) {
-        $a = (Read-Host 'Ouvrir maintenant la page Web de l imprimante ? (O/N)').Trim()
-        if ($a -match '^[OoYy]') { Start-Process "http://${ip}/" }
-    }
-} catch {
-    Record "Erreur : $($_.Exception.Message)"
-} finally {
-    $dest = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Diagnostic_HP9015.txt'
-    try {
-        [System.IO.File]::WriteAllLines($dest, [string[]]$report.ToArray(), (New-Object System.Text.UTF8Encoding($true)))
-        Step 100 'Analyse terminee : votre rapport est pret.'
-        Write-Host "`n  [OK] Rapport cree : $dest" -ForegroundColor Green
-    } catch {
-        Write-Host "Impossible d'ecrire sur le Bureau : $($_.Exception.Message)"
-    }
-    Finish-Progress
-    Write-Host "`n  ============== FIN DU SCAN ==============" -ForegroundColor Cyan
-    Write-Host "  Vous pouvez m'envoyer le rapport (masquez votre IP si vous preferez)." -ForegroundColor Yellow
-    Read-Host 'Appuyez sur Entree pour fermer' | Out-Null
-}
-) { $firmwareLabel = $fw }
+    if ($fw -cmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{1,59}) { $firmwareLabel = $fw }
 
     $modelLabel = 'HP OfficeJet Pro 9015 : modele a confirmer'
     if ($modelConfirmed) { $modelLabel = 'HP OfficeJet Pro 9015 : identifiee' }
@@ -419,6 +290,16 @@ try {
     }
     Record 'Desactiver les mises a jour automatiques uniquement si HP autorise ce reglage et si vous acceptez de reporter les correctifs de securite : cela ne repare pas une cartouche deja refusee.'
     Record 'Aucune mise a jour ou retrogradation n est lancee par cet outil.'
+    $modelConfirmed = $false
+    if ($candidate -and (($candidate.Name -match '(?i)9015') -or ($candidate.DriverName -match '(?i)9015'))) {
+        $modelConfirmed = $true
+    }
+    if ($ippData -and $ippData.Contains('printer-make-and-model') -and $ippData['printer-make-and-model'] -match '(?i)9015') {
+        $modelConfirmed = $true
+    }
+    $ippAvailable = ($null -ne $ippData -and $ippData.Count -gt 0)
+    $ewsAvailable = ($null -ne $ews -and $ews.accessible)
+    Offer-PublicIssue $firmware $choice $modelConfirmed $ippAvailable $ewsAvailable
     if ($ip -and $ews -and $ews.accessible) {
         $a = (Read-Host 'Ouvrir maintenant la page Web de l imprimante ? (O/N)').Trim()
         if ($a -match '^[OoYy]') { Start-Process "http://${ip}/" }
