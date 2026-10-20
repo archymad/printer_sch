@@ -10,6 +10,7 @@ Un petit outil **en lecture seule**, en français, pour aider à comprendre pour
 - Vérifie si l'interface Web locale de l'imprimante est accessible, puis tente d'y repérer une version de firmware.
 - Pose une question sur le message d'erreur des cartouches et propose des pistes adaptées.
 - Enregistre un rapport `Diagnostic_HP9015.txt` **sur le Bureau de l'ordinateur**, uniquement en local.
+- Propose facultativement d'ouvrir un **ticket GitHub prérempli** avec un résumé limité au modèle, au firmware et à la catégorie d'erreur. Le rapport complet n'est pas transmis.
 
 ## Installation et utilisation
 
@@ -18,6 +19,8 @@ Un petit outil **en lecture seule**, en français, pour aider à comprendre pour
 3. Double-cliquez sur `diag.cmd` (ou tapez `diag.cmd` dans l'invite de commandes Windows depuis le dossier).
 4. Si nécessaire, saisissez l'adresse IP indiquée dans le menu réseau de l'imprimante.
 5. Répondez aux questions et consultez le rapport généré sur le Bureau.
+6. À la fin, répondez **O** pour ouvrir une page de nouveau ticket GitHub préremplie. Vérifiez le contenu et cliquez sur **Submit new issue** pour publier. Répondez **N** pour ne rien partager.
+7. Sur votre téléphone, retrouvez le ticket dans [les issues du dépôt](https://github.com/archymad/printer_sch/issues) puis revenez dans ChatGPT et demandez l'analyse du ticket (idéalement en donnant son numéro). **L'envoi du ticket ne déclenche pas automatiquement une réponse de ChatGPT.**
 
 Pour lire le script avant exécution, ouvrez `HP9015_Diagnostic.ps1` dans le Bloc-notes.
 
@@ -39,6 +42,10 @@ Pour télécharger la dernière version sans Git, utilisez **Code > Download ZIP
 
 Le scan montre les vérifications effectuées, mais ne lit pas directement les puces des cartouches et ne déverrouille pas le firmware.
 
+### Envoi depuis un PC sans ChatGPT
+
+**ChatGPT n'a pas besoin d'être installé ni ouvert sur le PC.** Le script ouvre uniquement le navigateur sur GitHub pour préparer le partage. **GitHub peut cependant demander de se connecter à un compte** pour créer le ticket. Le ticket sera **public** une fois validé. Si vous ne souhaitez pas vous connecter à GitHub sur ce PC, choisissez N et transférez le rapport local vous-même vers votre téléphone, sans le publier.
+
 ## Sécurité et confidentialité
 
 - Aucun droit administrateur n'est demandé.
@@ -46,7 +53,9 @@ Le scan montre les vérifications effectuées, mais ne lit pas directement les p
 - Ne modifie ni le firmware, ni la configuration de l'imprimante, ni les cartouches.
 - Les requêtes réseau visent uniquement une adresse IPv4 privée locale (IPP et interface Web de l'imprimante). Les redirections HTTP ne sont pas suivies.
 - Le lanceur démarre PowerShell avec `-ExecutionPolicy Bypass` **pour ce processus uniquement**. Il ne change pas le paramètre Windows global.
-- Le rapport peut inclure des noms d'imprimantes, pilotes, ports et adresses IP privées. **Relisez et masquez ces données avant de publier le rapport sur GitHub.**
+- Le rapport local peut inclure des noms d'imprimantes, pilotes, ports et adresses IP privées. **Ne publiez pas directement ce rapport brut sur GitHub.**
+- Le ticket prérempli ne contient que des champs strictement limités : identification générique du modèle, version du firmware (uniquement caractères alphanumériques/signes autorisés), catégorie de blocage et disponibilité des réponses IPP/EWS. Aucun nom de PC, nom d'imprimante Windows, adresse IP ou numéro de série n'y est inclus.
+- Aucune donnée n'est publiée automatiquement : vous devez choisir O, vérifier le ticket, vous connecter à GitHub si nécessaire, puis le soumettre.
 
 ## Limites
 
